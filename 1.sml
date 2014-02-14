@@ -399,10 +399,10 @@ datatype token = T_LET
          | T_RPAREN
          | T_COMMA
          | T_EYE
-               | T_SEMICOLON
-               | T_LBRACKET
-               | T_RBRACKET
-               | T_DEF
+         | T_SEMICOLON
+         | T_LBRACKET
+         | T_RBRACKET
+         | T_DEF
 
 fun stringOfToken T_LET = "T_LET"
   | stringOfToken (T_SYM s) = "T_SYM["^s^"]"
@@ -432,6 +432,7 @@ fun produceSymbol "let" = SOME (T_LET)
   | produceSymbol "false" = SOME (T_FALSE)
   | produceSymbol "if" = SOME (T_IF)
   | produceSymbol "eye" = SOME (T_EYE)
+  | produceSymbol "def" = SOME (T_DEF)
   | produceSymbol text = SOME (T_SYM text)
 
 fun produceInt text = SOME (T_INT (valOf (Int.fromString text)))

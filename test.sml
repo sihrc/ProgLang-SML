@@ -1,5 +1,5 @@
 use "1.sml";
-
+Control.Print.printDepth := 100; 
 val a = applyEye (VRat (1,1)) = VMat [[VRat (1,1)]];
 val a =applyEye (VRat (2,1)) = VMat [[VRat (1,1),VRat (0,1)],[VRat (0,1),VRat (1,1)]];
 val a =applyEye (VRat (4,1)) = VMat ([[VRat (1,1),VRat (0,1),VRat (0,1),VRat (0,1)],
@@ -50,3 +50,9 @@ val e = parse_expr_row (lexString "1 2") = SOME ([EVal (VRat (1,1)),EVal (VRat (
 val e = parse_expr_row (lexString "1") = SOME ([EVal (VRat (1,1))],[]);
 val e = parse (lexString "[1 2; 3 4]") =EMatrix([[EVal (VRat (1,1)),EVal (VRat (2,1))],[EVal (VRat (3,1)),EVal (VRat (4,1))]]);
 val e = parse (lexString "1 + [1 2; 3 4]") = EAdd (EVal (VRat (1,1)), EMatrix [[EVal (VRat (1,1)),EVal (VRat (2,1))], [EVal (VRat (3,1)),EVal (VRat (4,1))]]);
+
+
+val f = lexString "def" = [T_DEF];
+val f = lexString "define" = [T_SYM "define"];
+val f = lexString "fundef" = [T_SYM "fundef"];
+val f = lexString "def double (x) = 2 * x" =[T_DEF,T_SYM "double",T_LPAREN,T_SYM "x",T_RPAREN,T_EQUAL,T_INT 2,T_TIMES,T_SYM "x"];
