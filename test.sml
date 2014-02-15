@@ -56,3 +56,15 @@ val f = lexString "def" = [T_DEF];
 val f = lexString "define" = [T_SYM "define"];
 val f = lexString "fundef" = [T_SYM "fundef"];
 val f = lexString "def double (x) = 2 * x" =[T_DEF,T_SYM "double",T_LPAREN,T_SYM "x",T_RPAREN,T_EQUAL,T_INT 2,T_TIMES,T_SYM "x"];
+
+
+val g = parse_decl (lexString "def double (x) = 2 * x") = SOME (DeclDefinition ("double",["x"],EMul (EVal (VRat (2,1)),EIdent "x")),[]);
+val g = parse_decl (lexString "double (10)") = SOME (DeclExpression (ECall ("double",[EVal (VRat (10,1))])),[]);
+val g = parse_decl (lexString "def sum (a,b,c) = a + b + c") = SOME (DeclDefinition ("sum",["a","b","c"],EAdd (EIdent "a",EAdd (EIdent "b",EIdent "c"))),[]);
+val g = parse_decl (lexString "a + b + c") = SOME (DeclExpression (EAdd (EIdent "a",EAdd (EIdent "b",EIdent "c"))),[]);
+val g = parse_decl (lexString "1 + sum (10,20,30)") = SOME (DeclExpression (EAdd (EVal (VRat (1,1)), ECall ("sum", [EVal (VRat (10,1)),EVal (VRat (20,1)),EVal (VRat (30,1))]))), []);
+
+
+val h = parse_wdef (lexString "def double (x) = 2 * x")  = DeclDefinition ("double",["x"],EMul (EVal (VRat (2,1)),EIdent "x"));
+val h = parse_wdef (lexString "double (10)")  = DeclExpression (ECall ("double",[EVal (VRat (10,1))]));
+val h = parse_wdef (lexString "def sum (a,b,c) = a + b + c")  = DeclDefinition ("sum",["a","b","c"],EAdd (EIdent "a",EAdd (EIdent "b",EIdent "c")));

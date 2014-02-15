@@ -468,6 +468,9 @@ in
      ("/",                    produceSlash)]
 end
 
+datatype decl = DeclDefinition of string * (string list) * expr
+              | DeclExpression of expr
+
 
 
 (*
@@ -605,6 +608,9 @@ fun expect_RBRACKET (T_RBRACKET::ts) = SOME ts
 fun expect_SEMICOLON (T_SEMICOLON::ts) = SOME ts
   | expect_SEMICOLON _ = NONE
 
+fun expect_DEF (T_DEF::ts) = SOME ts
+  |expect_DEF _ = NONE
+
 fun parse_expr ts = 
    (case parse_expr_IF ts
       of NONE => 
@@ -615,6 +621,42 @@ fun parse_expr ts =
      | s => s)
      | s => s)
      | s => s)
+
+and parse_decl ts =
+  (case expect_DEF ts of 
+    NONE =>  (case parse_expr ts of 
+        NONE => NONE
+        |SOME (expr, ts) => SOME((DeclExpression expr),ts))
+    |SOME ts => 
+    (case expect_SYM ts of 
+      NONE => NONE
+      |SOME (funcname,ts) => 
+      (case expect_LPAREN ts of
+       NONE => NONE
+        |SOME ts => 
+        (case parse_symbol_list ts of
+           NONE => NONE
+           |SOME (args, ts) => 
+            (case expect_RPAREN ts of 
+             NONE => NONE
+            |SOME ts => 
+              (case expect_EQUAL ts of 
+                NONE => NONE
+                |SOME ts => 
+              (case parse_expr ts of
+                NONE => NONE
+                |SOME (expr, ts) => SOME((DeclDefinition (funcname, args, expr)),ts))))))))
+
+and parse_symbol_list ts =
+    (case expect_SYM ts of 
+      NONE => NONE
+      |SOME (arg1, ts) => 
+      (case expect_COMMA ts of 
+        NONE => SOME([arg1], ts)
+        |SOME ts => 
+        (case parse_symbol_list ts of
+          NONE => NONE
+          |SOME (args, ts) => SOME((arg1::args), ts))))
 
 and parse_expr_row ts = 
   (case parse_expr ts of 
@@ -883,12 +925,9 @@ fun parse tokens =
        | _ => parseError "Cannot parse expression")
 
 
-
-datatype decl = DeclDefinition of string * (string list) * expr
-              | DeclExpression of expr
-
-
-fun parse_wdef tokens = unimplemented "parse_wdef"
+fun parse_wdef tokens = (case parse_decl tokens of 
+  NONE => parseError "error"
+  |SOME(decl, ts) => decl)
 
 
 
@@ -923,8 +962,29 @@ in
     print "Type . by itself to quit\n";
     read fenv
 end
-
-
-    
-fun shell_wdef fenv = unimplemented "shell_wdef"
-
+(*
+fun shell_wdef fenv = let
+    fun prompt () = (print "pldi-hw3> "; TextIO.inputLine (TextIO.stdIn))
+    fun pr l = print ((String.concatWith " " l)^"\n")
+    fun read fenv = 
+  (case prompt () 
+    of NONE => ()
+     | SOME ".\n" => ()
+     | SOME str => eval_print fenv str)
+    and eval_print fenv str = 
+      (case )
+  (let val ts = lexString str
+       val _ = pr (["Tokens ="] @ (map stringOfToken ts))
+       val expr = parse ts
+       val _ = pr ["Internal rep = ", stringOfExpr (expr)]
+       val v = eval fenv expr
+       val _ = pr [stringOfValue v]
+   in
+       read fenv
+   end
+   handle Parsing msg => (pr ["Parsing error:", msg]; read fenv)
+        | Evaluation msg => (pr ["Evaluation error:", msg]; read fenv))
+in
+    print "Type . by itself to quit\n";
+    read fenv
+end*)
