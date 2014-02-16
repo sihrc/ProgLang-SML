@@ -1,4 +1,4 @@
-use "1.sml";
+use "chrislee_hw3.sml";
 Control.Print.printDepth := 100; 
 val a = applyEye (VRat (1,1)) = VMat [[VRat (1,1)]];
 val a =applyEye (VRat (2,1)) = VMat [[VRat (1,1),VRat (0,1)],[VRat (0,1),VRat (1,1)]];
@@ -68,3 +68,5 @@ val g = parse_decl (lexString "1 + sum (10,20,30)") = SOME (DeclExpression (EAdd
 val h = parse_wdef (lexString "def double (x) = 2 * x")  = DeclDefinition ("double",["x"],EMul (EVal (VRat (2,1)),EIdent "x"));
 val h = parse_wdef (lexString "double (10)")  = DeclExpression (ECall ("double",[EVal (VRat (10,1))]));
 val h = parse_wdef (lexString "def sum (a,b,c) = a + b + c")  = DeclDefinition ("sum",["a","b","c"],EAdd (EIdent "a",EAdd (EIdent "b",EIdent "c")));
+
+shell_wdef [];

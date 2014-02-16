@@ -52,6 +52,8 @@ datatype expr = EVal of value
               | ECall of string * expr list
         | EMatrix of expr list list
         | EEye of expr
+        | EAt  of expr * (expr * expr)
+        | ERow of expr * expr
 
 datatype function = FDef of string list * expr 
 
@@ -100,6 +102,8 @@ fun stringOfExpr e = let
       | strE (EIdent n) = $ ["EIdent ", strS n]
       | strE (ECall (n,es)) = $ ["ECall (", strS n,", [", $+ (map strE es),"])"]
       | strE (EMatrix ess) = $ ["EMatrix ", strM strE ess]
+      | strE (ERow (m, x)) = $ ["ERow ", strE m, strE x]
+      | strE (EAt (m, (x,y))) = $ ["EAt ", strE m, strE x, strE y]
 in
     strE e
 end
@@ -268,6 +272,12 @@ fun applyEq (VRat r) (VRat s) = VBool (r=s)
 fun applyEye (VRat(a,b)) = if a mod b = 0 then VMat(identityMat (a div b)) else evalError "ApplyEye requires integer"
   |applyEye _ = evalError "Please give a VRAT"
 
+fun applyRow (VMat m) (VRat (x,1)) = VMat [(List.nth(m,x))]
+  |applyRow _ _ = evalError "YOU DERPED"
+
+fun applyAt (VMat m) (VRat (x,1)) (VRat (y,1)) = List.nth(List.nth(m,x),y)
+  |applyAt _ _ _ = evalError "YOU DERPED"
+
 
 
 (*
@@ -301,6 +311,8 @@ fun subst (EVal v) id e = EVal v
   EMatrix (mapMat sub m)
     end
   | subst (EEye f) id e = EEye (subst f id e)
+  | subst (ERow(f,x)) id e = ERow((subst f id e), (subst x id e)) 
+  | subst (EAt(f,(x,y))) id e = EAt((subst f id e), ((subst x id e), (subst y id e))) 
 
 
 
@@ -327,6 +339,8 @@ fun eval _ (EVal v) = v
                 evalCall fenv (lookup name fenv) (map (eval fenv) es)
   | eval fenv (EMatrix m) = matrix (mapMat (eval fenv) m)
   | eval fenv (EEye (e)) = applyEye (eval fenv e)
+  | eval fenv (EAt(e,(x,y))) = applyAt (eval fenv e) (eval fenv x) (eval fenv y)
+  | eval fenv (ERow(e,x)) = applyRow (eval fenv e) (eval fenv x)
 
 and evalCall fenv (FDef (params,body)) vs = let
     fun substParams e [] [] = e
@@ -402,6 +416,7 @@ datatype token = T_LET
          | T_LBRACKET
          | T_RBRACKET
          | T_DEF
+         | T_AT
 
 fun stringOfToken T_LET = "T_LET"
   | stringOfToken (T_SYM s) = "T_SYM["^s^"]"
@@ -422,6 +437,7 @@ fun stringOfToken T_LET = "T_LET"
   | stringOfToken T_SEMICOLON = "T_SEMICOLON"
   | stringOfToken T_LBRACKET = "T_LBRACKET"
   | stringOfToken T_RBRACKET = "T_RBRACKET"
+  | stringOfToken T_AT = "T_AT"
 
 
 fun whitespace _ = NONE
@@ -447,6 +463,7 @@ fun produceComma _ = SOME (T_COMMA)
 fun produceSemiColon _ = SOME (T_SEMICOLON)
 fun produceLBracket _ = SOME (T_LBRACKET)
 fun produceRBracket _ = SOME (T_RBRACKET)
+fun produceAt _ = SOME (T_AT)
 
 val tokens = let 
     fun convert (re,f) = (R.compileString re, f)
@@ -461,10 +478,11 @@ in
      ("\\(",                  produceLParen),
      ("\\)",                  produceRParen),
      (",",                    produceComma),
-     (";",                   produceSemiColon),
-     ("\\]",                 produceRBracket),
-     ("\\[",                 produceLBracket),
-     ("/",                    produceSlash)]
+     (";",                    produceSemiColon),
+     ("\\]",                  produceRBracket),
+     ("\\[",                  produceLBracket),
+     ("/",                    produceSlash),
+     ("\\@",                    produceAt)]
 end
 
 datatype decl = DeclDefinition of string * (string list) * expr
@@ -607,10 +625,15 @@ fun expect_RBRACKET (T_RBRACKET::ts) = SOME ts
 fun expect_SEMICOLON (T_SEMICOLON::ts) = SOME ts
   | expect_SEMICOLON _ = NONE
 
+fun expect_AT (T_AT::ts) = SOME ts
+  | expect_AT _ = NONE
+
 fun expect_DEF (T_DEF::ts) = SOME ts
   |expect_DEF _ = NONE
 
 fun parse_expr ts = 
+   (case parse_AT ts of 
+    NONE => 
    (case parse_expr_IF ts
       of NONE => 
    (case parse_expr_LET ts
@@ -620,13 +643,42 @@ fun parse_expr ts =
      | s => s)
      | s => s)
      | s => s)
+     | s => s)
+
+and parse_AT ts = 
+  (case parse_factor_MATRIX ts of 
+    NONE => 
+    (case expect_SYM ts of 
+      NONE => NONE
+      |SOME (s,ts) => (case expect_AT ts of 
+        NONE => NONE
+        |SOME ts => (case expect_LPAREN ts of 
+        NONE => NONE
+        |SOME ts => (case parse_factor_INT ts of 
+          NONE => NONE
+          |SOME (ex1,ts) => (case expect_COMMA ts of
+            NONE => SOME((ERow ((EIdent s), ex1)),ts)
+            |SOME ts => (case parse_factor_INT ts of 
+              NONE => NONE
+              |SOME (ex2, ts) => SOME((EAt((EIdent s), (ex1,ex2))),ts)))))))
+
+    |SOME (matrix, ts) => (case expect_AT ts of 
+        NONE => NONE
+        |SOME ts => (case expect_LPAREN ts of 
+        NONE => parse_expr (ts)
+        |SOME ts => (case parse_factor_INT ts of 
+          NONE => NONE
+          |SOME (ex1,ts) => (case expect_COMMA ts of
+            NONE =>  SOME((ERow (matrix, ex1)),ts)
+            |SOME ts => (case parse_factor_INT ts of 
+              NONE => NONE
+              |SOME (ex2, ts)=> SOME((EAt(matrix, (ex1,ex2))),ts)))))))
 
 and parse_decl ts =
   (case expect_DEF ts of 
     NONE =>  (case parse_expr ts of 
         NONE => NONE
-        |SOME (expr, []) => SOME((DeclExpression expr),[])
-        | _ => parseError "Parsing Error!")
+        |SOME (expr, _) => SOME((DeclExpression expr),[]))        
     |SOME ts => 
     (case expect_SYM ts of 
       NONE => NONE
@@ -835,8 +887,10 @@ and parse_factor ts =
     (case parse_factor_CALL ts
       of NONE => 
     (case parse_factor_EYE ts
-      of NONE => 
+      of NONE =>
     (case parse_factor_MATRIX ts
+      of NONE =>
+    (case parse_AT ts 
       of NONE =>
     (case parse_factor_SYM ts
       of NONE => parse_factor_PARENS ts
@@ -847,6 +901,7 @@ and parse_factor ts =
              | s => s)
             | s => s)
            | s => s)
+          | s => s)
 
 and parse_factor_MATRIX ts = 
     (case expect_LBRACKET ts 
@@ -858,6 +913,7 @@ and parse_factor_MATRIX ts =
        (case expect_RBRACKET ts
          of NONE => NONE
           | SOME ts => SOME (EMatrix(es),ts))))
+
 
 and parse_factor_EYE ts = 
     (case expect_EYE ts 
@@ -990,3 +1046,14 @@ in
     print "Type . by itself to quit\n";
     read fenv
 end
+
+
+
+
+(*
+I've implemented getting matrix values by index and row
+  parse_AT
+  matrix@(1,2)
+  applyAt
+  applyRow
+*)
