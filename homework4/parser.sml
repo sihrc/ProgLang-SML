@@ -241,7 +241,7 @@ structure Parser =  struct
    *             T_LPAREN expr T_RPAREN                     [aterm_PARENS]
    *             T_IF expr T_THEN expr T_ELSE expr          [aterm_IF]
    *             T_LET T_SYM T_EQUAL expr T_IN expr         [aterm_LET]
-   *             T_LET T_SYM T_SYM T_EQUAL expr T_IN expr   [aterm_LET_FUN]
+   *             T_LET T_SYM sym_list T_EQUAL expr T_IN expr   [aterm_LET_FUN]
    *)
 
 
@@ -477,9 +477,9 @@ structure Parser =  struct
          (case expect_SYM ts 
            of NONE => NONE
             | SOME (s,ts) => 
-	      (case expect_SYM ts
+	        (case parse_sym_list ts
                 of NONE => NONE
-                 | SOME (param,ts) => 
+                 | SOME (symlist,ts) => 
                    (case expect_EQUAL ts
                      of NONE => NONE
                       | SOME ts => 
@@ -492,9 +492,29 @@ structure Parser =  struct
                                   (case parse_expr ts
                                     of NONE => NONE
                                      | SOME (e2,ts) => 
-                                         SOME (I.ELetFun (s,param,e1,e2),ts))))))))
+                                        make_recur_ELetFun s symlist e1 e2 ts)))))))
+
+  and make_recur_ELetFun (s:string) ((I.EIdent symhd)::symtl) (e1:I.expr) (e2:I.expr) ts= let
+    fun efun_rec [] = e1
+      | efun_rec ((I.EIdent s)::sx) = I.EFun(s, (efun_rec sx))
+  in
+    SOME ((I.ELetFun(s, symhd, (efun_rec symtl), e2)), ts)
+  end
 
 
+  and parse_sym_list ts = 
+    choose [parse_sym_list_SYM_LIST,
+            parse_sym_list_EMPTY] ts
+
+  and parse_sym_list_SYM_LIST ts = 
+    (case parse_aterm_SYM ts
+      of NONE => NONE
+       | SOME (at,ts) => 
+         (case parse_sym_list ts
+           of NONE => NONE
+            | SOME (ats,ts) => SOME (at::ats,ts)))
+
+  and parse_sym_list_EMPTY ts = SOME ([], ts)
 
   and parse_aterm_list ts = 
       choose [parse_aterm_list_ATERM_LIST,
