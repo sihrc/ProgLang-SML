@@ -1,0 +1,13 @@
+(* 
+ *   CODE FOR HOMEWORK 4
+ *)
+
+group is
+
+  $/regexp-lib.cm
+  $/basis.cm
+
+  parser.sml
+  representation.sml
+  evaluator.sml
+  shell.sml
