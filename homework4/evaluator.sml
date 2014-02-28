@@ -31,12 +31,12 @@ structure Evaluator = struct
   fun primLess (I.VInt a) (I.VInt b) = I.VBool (a<b)
     | primLess _ _ = I.VBool false
 
-			 
+       
   fun lookup (name:string) [] = evalError ("failed lookup for "^name)
     | lookup name ((n,v)::env) = 
         if (n = name) then 
-	  v
-	else lookup name env 
+    v
+  else lookup name env 
 
 
   (*
@@ -59,16 +59,16 @@ structure Evaluator = struct
       
   and evalApp _ (I.VClosure (n,body,env)) v = eval ((n,v)::env) body
     | evalApp _ (I.VRecClosure (f,n,body,env)) v = let
-	  val new_env = [(f,I.VRecClosure (f,n,body,env)),(n,v)]@env
+    val new_env = [(f,I.VRecClosure (f,n,body,env)),(n,v)]@env
       in 
-	  eval new_env body
+    eval new_env body
       end
     | evalApp _ _ _ = evalError "cannot apply non-functional value"
 
   and evalIf env (I.VBool true) f g = eval env f
     | evalIf env (I.VBool false) f g = eval env g
     | evalIf _ _ _ _ = evalError "evalIf"
-		       
+           
   and evalLet env id v body = eval ((id,v)::env) body
 
   and evalLetFun env id param expr body = let
@@ -84,29 +84,30 @@ structure Evaluator = struct
 
   val initialEnv = 
       [("add", I.VClosure ("a", 
-			   I.EFun ("b", 
-				   I.EPrimCall2 (primPlus,
-						 I.EIdent "a",
-						 I.EIdent "b")),
-			   [])),
+         I.EFun ("b", 
+           I.EPrimCall2 (primPlus,
+             I.EIdent "a",
+             I.EIdent "b")),
+         [])),
        ("sub", I.VClosure ("a", 
-			   I.EFun ("b", 
-				   I.EPrimCall2 (primMinus,
-						 I.EIdent "a",
-						 I.EIdent "b")),
-			   [])),
+         I.EFun ("b", 
+           I.EPrimCall2 (primMinus,
+             I.EIdent "a",
+             I.EIdent "b")),
+         [])),
        ("equal", I.VClosure ("a",
-			  I.EFun ("b",
-				  I.EPrimCall2 (primEq,
-						I.EIdent "a",
-						I.EIdent "b")),
-			  [])),
+        I.EFun ("b",
+          I.EPrimCall2 (primEq,
+            I.EIdent "a",
+            I.EIdent "b")),
+        [])),
        ("less", I.VClosure ("a",
-			    I.EFun ("b",
-				    I.EPrimCall2 (primLess,
-						  I.EIdent "a",
-						  I.EIdent "b")),
-			    []))]
+          I.EFun ("b",
+            I.EPrimCall2 (primLess,
+              I.EIdent "a",
+              I.EIdent "b")),
+          []))
+       ]
   
-				 
+         
 end
