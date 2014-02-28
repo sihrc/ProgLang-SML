@@ -232,11 +232,14 @@ structure Parser =  struct
    *            
    *   aterm_list ::= aterm aterm_list                [aterm_list_ATERM_LIST]
    *                  <empty>                         [aterm_list_EMPTY]
-   *   
+   *   expr_list  ::= expr T_COMMA expr_list
+   *                  expr
+   *                  <empty>
    *   aterm ::= T_INT                                      [aterm_INT]
    *             T_TRUE                                     [aterm_TRUE]
    *             T_FALSE                                    [aterm_FALSE]
    *             T_SYM                                      [aterm_SYM]
+   *             T_LBRACKET expr_list T_RBRACKET            [aterm_LIST] 
    *             T_BACKSLASH T_SYM T_RARROW expr            [aterm_FUN]
    *             T_LPAREN expr T_RPAREN                     [aterm_PARENS]
    *             T_IF expr T_THEN expr T_ELSE expr          [aterm_IF]
@@ -382,7 +385,8 @@ structure Parser =  struct
               parse_aterm_PARENS,
 	      parse_aterm_IF,
 	      parse_aterm_LET,
-	      parse_aterm_LET_FUN
+	      parse_aterm_LET_FUN,
+        parse_aterm_LIST
 	     ] ts
 
   and parse_aterm_INT ts = 
@@ -531,6 +535,25 @@ structure Parser =  struct
 
   and parse_aterm_list_EMPTY ts = SOME ([], ts)
 
+  and parse_aterm_LIST ts = (case expect_LBRACKET ts 
+    of NONE => NONE
+     | SOME ts => (case parse_expr_list ts 
+      of NONE => NONE
+      |SOME (es, ts) => (case expect_RBRACKET ts 
+        of NONE => NONE
+         | SOME ts => SOME ((createCons es),ts))))
+
+  and createCons es = List.foldr (fn (e, es') => I.EApp (I.EApp (I.EIdent "cons", e), es')) (I.EVal (I.VList [])) es
+
+  and parse_expr_list ts =
+    (case parse_expr ts 
+      of NONE => SOME ([], ts)
+       | SOME (e, ts) =>
+        (case expect_COMMA ts
+          of NONE => SOME ([e], ts)
+          | SOME(ts) => case parse_expr_list ts 
+            of NONE => NONE
+            | SOME(es, ts) => SOME (e::es, ts)))
 
   fun parse ts = 
       (case parse_expr ts

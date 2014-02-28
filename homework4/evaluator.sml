@@ -28,7 +28,6 @@ structure Evaluator = struct
     | primEq (I.VBool a) (I.VBool b) = I.VBool (a=b)
     | primEq (I.VList (a::ax)) (I.VList (b::bx)) = if (case (primEq a b) of (I.VBool x) => x) then 
         primEq (I.VList ax) (I.VList bx)
-
         else 
         I.VBool false
     | primEq (I.VList []) (I.VList []) = I.VBool (true)
