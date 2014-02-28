@@ -31,12 +31,20 @@ structure Evaluator = struct
   fun primLess (I.VInt a) (I.VInt b) = I.VBool (a<b)
     | primLess _ _ = I.VBool false
 
+  fun primCons x (I.VList y) = I.VList(x::y)
+    | primCons _ _ = evalError "primCons"
        
   fun lookup (name:string) [] = evalError ("failed lookup for "^name)
     | lookup name ((n,v)::env) = 
         if (n = name) then 
     v
   else lookup name env 
+
+  fun primHd (I.VList (x::xs)) = x
+    | primHd _ = evalError "primHd"
+
+  fun primTl (I.VList (x::xs)) = I.VList xs
+    | primTl _ = evalError "primTl"
 
 
   (*
@@ -106,7 +114,20 @@ structure Evaluator = struct
             I.EPrimCall2 (primLess,
               I.EIdent "a",
               I.EIdent "b")),
-          []))
+          [])),
+       ("nil", I.VList []),
+       ("cons", I.VClosure ("a", 
+         I.EFun ("b", 
+           I.EPrimCall2 (primCons,
+             I.EIdent "a",
+             I.EIdent "b")),
+         [])),
+       ("hd", I.VClosure ("a", 
+           I.EPrimCall1 (primHd, I.EIdent "a"),
+         [])),
+       ("tl", I.VClosure ("a", 
+           I.EPrimCall1 (primTl, I.EIdent "a"),
+         []))
        ]
   
          
