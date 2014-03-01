@@ -50,6 +50,9 @@ structure Evaluator = struct
 
   fun primTl (I.VList (x::xs)) = I.VList xs
     | primTl _ = evalError "primTl"
+  
+  fun primInterval (I.VInt a) (I.VInt b) = I.VList (List.tabulate ((b - a + 1), (fn x => I.VInt(x + a))))
+    | primInterval _ _ = evalError "primInterval"
 
 
   (*
@@ -90,7 +93,15 @@ structure Evaluator = struct
       eval ((id,f)::env) body
   end
 
-
+ fun primMap (I.VClosure(str,expr,fenv))  (I.VList (a::ax)) = let
+  val vfunc = I.EFun(str, expr)
+  val inside = eval fenv (I.EApp( vfunc, I.EVal (a)))
+  val outer_list = (primMap (I.VClosure (str, expr, fenv)) (I.VList ax))
+  in
+    case outer_list of 
+      I.VList xs => I.VList(inside::xs)
+  end
+  | primMap (I.VClosure(str,expr,fenv)) (I.VList []) = (I.VList [])
   (* 
    *   Initial environment (already in a form suitable for the environment)
    *)
@@ -132,7 +143,19 @@ structure Evaluator = struct
          [])),
        ("tl", I.VClosure ("a", 
            I.EPrimCall1 (primTl, I.EIdent "a"),
-         []))
+         [])),
+        ("interval", I.VClosure ("a",
+          I.EFun ("b",
+            I.EPrimCall2 (primInterval,
+              I.EIdent "a",
+              I.EIdent "b")),
+          [])),
+        ("map", I.VClosure ("a",
+          I.EFun ("b",
+            I.EPrimCall2 (primMap,
+              I.EIdent "a",
+              I.EIdent "b")),
+          []))
        ]
   
          

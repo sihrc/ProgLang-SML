@@ -242,9 +242,14 @@ structure Parser =  struct
    *             T_LBRACKET expr_list T_RBRACKET            [aterm_LIST] 
    *             T_BACKSLASH T_SYM T_RARROW expr            [aterm_FUN]
    *             T_LPAREN expr T_RPAREN                     [aterm_PARENS]
+   *             T_LBRACKET expr T_DDOTS expr T_RBRACKET    [aterm_INTERVAL]
    *             T_IF expr T_THEN expr T_ELSE expr          [aterm_IF]
    *             T_LET T_SYM T_EQUAL expr T_IN expr         [aterm_LET]
    *             T_LET T_SYM sym_list T_EQUAL expr T_IN expr   [aterm_LET_FUN]
+
+   *             T_MATCH expr T_WITH T_LBRACKET T_RBRACKET T_RARROW  [aterm_MATCH]
+                      expr T_BAR T_SYM T_DCOLON T_SYM T_RARROW expr
+
    *)
 
 
@@ -386,7 +391,9 @@ structure Parser =  struct
 	      parse_aterm_IF,
 	      parse_aterm_LET,
 	      parse_aterm_LET_FUN,
-        parse_aterm_LIST
+        parse_aterm_MATCH,
+        parse_aterm_LIST,
+        pasre_aterm_INTERVAL
 	     ] ts
 
   and parse_aterm_INT ts = 
@@ -454,6 +461,59 @@ structure Parser =  struct
                                of NONE => NONE
                                 | SOME (e3,ts) => SOME (I.EIf (e1,e2,e3),ts)))))))
 
+  and parse_aterm_MATCH ts = 
+    (case expect_MATCH ts
+      of NONE => NONE
+       | SOME ts => 
+         (case parse_expr ts
+           of NONE => NONE
+            | SOME (e1,ts) => 
+              (case expect_WITH ts 
+                of NONE => NONE
+                |  SOME ts => 
+                (case expect_LBRACKET ts
+                  of NONE => NONE
+                   | SOME ts => 
+                     (case expect_RBRACKET ts
+                       of NONE => NONE
+                        | SOME ts => 
+                            (case expect_RARROW ts
+                              of NONE => NONE
+                               | SOME ts => 
+                                 (case parse_expr ts
+                                   of NONE => NONE
+                                    | SOME (e2,ts) => 
+                                    (case expect_BAR ts 
+                                      of NONE => NONE
+                                       | SOME (ts) => 
+                                       (case expect_SYM ts 
+                                        of NONE => NONE
+                                        |  SOME (sym1, ts) => 
+                                        (case expect_DCOLON ts 
+                                          of NONE => NONE
+                                          |  SOME ts => 
+                                          (case expect_SYM ts 
+                                            of NONE => NONE
+                                            |  SOME (sym2, ts) =>
+                                            (case expect_RARROW ts 
+                                              of NONE => NONE
+                                              |  SOME ts => 
+                                              (case parse_expr ts 
+                                                of NONE => NONE
+                                                |  SOME (e3, ts) => SOME ((createMatch e1 e2 e3 sym1 sym2), ts))))))))))))))
+
+  and createMatch e1 e2 e3 sym1 sym2 =
+      I.EIf (
+      I.EApp (I.EApp (I.EIdent "equal", e1),I.EVal (I.VList [])),
+      e2,
+      I.ELet (sym1,I.EApp (I.EIdent "hd", e1),
+      I.ELet (sym2,I.EApp
+      (I.EIdent "tl", e1), e3))
+      )
+
+
+
+
   and parse_aterm_LET ts = 
     (case expect_LET ts 
       of NONE => NONE
@@ -497,7 +557,6 @@ structure Parser =  struct
                                     of NONE => NONE
                                      | SOME (e2,ts) => 
                                         make_recur_ELetFun s symlist e1 e2 ts)))))))
-
   and make_recur_ELetFun (s:string) ((I.EIdent symhd)::symtl) (e1:I.expr) (e2:I.expr) ts= let
     fun efun_rec [] = e1
       | efun_rec ((I.EIdent s)::sx) = I.EFun(s, (efun_rec sx))
@@ -554,6 +613,23 @@ structure Parser =  struct
           | SOME(ts) => case parse_expr_list ts 
             of NONE => NONE
             | SOME(es, ts) => SOME (e::es, ts)))
+
+  and pasre_aterm_INTERVAL ts = 
+    (case expect_LBRACKET ts 
+      of NONE => NONE
+      |  SOME ts => 
+        (case parse_expr ts 
+          of NONE => NONE
+            |SOME (e1,ts) => 
+              (case expect_DDOTS ts 
+                of NONE => NONE
+                 | SOME ts => 
+                  (case parse_expr ts 
+                    of NONE => NONE
+                     | SOME (e2, ts) => 
+                       (case expect_RBRACKET ts 
+                        of NONE => NONE
+                         | SOME ts =>  SOME((I.EApp (I.EApp (I.EIdent "interval", e1), e2)),ts))))))
 
   fun parse ts = 
       (case parse_expr ts
