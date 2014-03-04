@@ -6,7 +6,7 @@
 structure Evaluator = struct
 
   structure I = InternalRepresentation
-
+  structure P = Parser;
 
 
   exception Evaluation of string
@@ -149,14 +149,16 @@ structure Evaluator = struct
             I.EPrimCall2 (primInterval,
               I.EIdent "a",
               I.EIdent "b")),
-          [])),
-        ("map", I.VClosure ("a",
-          I.EFun ("b",
-            I.EPrimCall2 (primMap,
-              I.EIdent "a",
-              I.EIdent "b")),
           []))
+        
        ]
-  
+    val initialEnv = ("map", let
+          val parsed = P.parse (P.lexString 
+            "let map f lst = if (lst = nil) then nil else (cons (f (hd lst)) (map f (tl lst))) in map"
+              )
+          val efun = (case parsed of (I.ELetFun (_, _,  func, _)) => func)
+          in
+            I.VRecClosure("map", "f", efun, initialEnv)
+          end)::initialEnv
          
 end
