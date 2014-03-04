@@ -235,18 +235,19 @@ structure Parser =  struct
    *   expr_list  ::= expr T_COMMA expr_list
    *                  expr
    *                  <empty>
-   *   aterm ::= T_INT                                                  [aterm_INT]
-   *             T_TRUE                                                 [aterm_TRUE]
-   *             T_FALSE                                                [aterm_FALSE]
-   *             T_SYM                                                  [aterm_SYM]
-   *             T_LBRACKET expr_list T_RBRACKET                        [aterm_LIST] 
-   *             T_BACKSLASH T_SYM T_RARROW expr                        [aterm_FUN]
-   *             T_LPAREN expr T_RPAREN                                 [aterm_PARENS]
-   *             T_LBRACKET expr T_DDOTS expr T_RBRACKET                [aterm_INTERVAL]
-   *             T_IF expr T_THEN expr T_ELSE expr                      [aterm_IF]
-   *             T_LET T_SYM T_EQUAL expr T_IN expr                     [aterm_LET]
-   *             T_LBRACKET expr T_BAR T_SYM T_LARROW expr T_RBRACKET   [aterm_MAP]
-   *             T_LET T_SYM sym_list T_EQUAL expr T_IN expr            [aterm_LET_FUN]
+   *   aterm ::= T_INT                                                              [aterm_INT]
+   *             T_TRUE                                                             [aterm_TRUE]
+   *             T_FALSE                                                            [aterm_FALSE]
+   *             T_SYM                                                              [aterm_SYM]
+   *             T_LBRACKET expr_list T_RBRACKET                                    [aterm_LIST] 
+   *             T_BACKSLASH T_SYM T_RARROW expr                                    [aterm_FUN]
+   *             T_LPAREN expr T_RPAREN                                             [aterm_PARENS]
+   *             T_LBRACKET expr T_DDOTS expr T_RBRACKET                            [aterm_INTERVAL]
+   *             T_IF expr T_THEN expr T_ELSE expr                                  [aterm_IF]
+   *             T_LET T_SYM T_EQUAL expr T_IN expr                                 [aterm_LET]
+   *             T_LBRACKET expr T_BAR T_SYM T_LARROW expr T_RBRACKET               [aterm_MAP]
+   *             T_LBRACKET expr T_BAR T_SYM T_LARROW expr T_COMMA expr T_RBRACKET  [aterm_FILTER]
+   *             T_LET T_SYM sym_list T_EQUAL expr T_IN expr                        [aterm_LET_FUN]
 
    *             T_MATCH expr T_WITH T_LBRACKET T_RBRACKET T_RARROW  [aterm_MATCH]
                       expr T_BAR T_SYM T_DCOLON T_SYM T_RARROW expr
@@ -395,7 +396,8 @@ structure Parser =  struct
         parse_aterm_MATCH,
         parse_aterm_LIST,
         parse_aterm_INTERVAL,
-        parse_aterm_MAP
+        parse_aterm_MAP,
+        parse_aterm_FILTER
 	     ] ts
 
   and parse_aterm_INT ts = 
@@ -533,6 +535,49 @@ structure Parser =  struct
                                           ),
                                          e2))
                                       ,ts))))))))
+
+  and parse_aterm_FILTER ts = 
+     (case expect_LBRACKET ts
+      of NONE => NONE
+       | SOME ts => 
+         (case parse_expr ts
+           of NONE => NONE
+            | SOME (e1,ts) => 
+              (case expect_BAR ts 
+                of NONE => NONE
+                |  SOME ts => 
+                (case expect_SYM ts
+                  of NONE => NONE
+                   | SOME (s1,ts) => 
+                     (case expect_LARROW ts
+                       of NONE => NONE
+                        | SOME ts => 
+                            (case parse_expr ts
+                              of NONE => NONE
+                               | SOME (e2,ts) => 
+                                  (case expect_COMMA ts
+                                    of NONE => NONE
+                                     | SOME ts => 
+                                       (case parse_expr ts
+                                         of NONE => NONE
+                                          | SOME (e3,ts) => 
+                                           (case expect_RBRACKET ts
+                                             of NONE => NONE
+                                              |SOME ts => SOME(
+                                                (I.EApp(
+                                                  I.EApp(
+                                                    (I.EIdent "map"), 
+                                                    (I.EFun(s1, e1))
+                                                    ),
+                                                   I.EApp(
+                                                    I.EApp(
+                                                      (I.EIdent "filter"),
+                                                      (I.EFun(s1, e3))
+                                                      ),e2
+                                                    )
+                                                   ))
+                                                ,ts))))))))))
+
 
 
   and createMatch e1 e2 e3 sym1 sym2 =
