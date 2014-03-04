@@ -160,5 +160,14 @@ structure Evaluator = struct
           in
             I.VRecClosure("map", "f", efun, initialEnv)
           end)::initialEnv
+
+    val initialEnv = ("filter", let
+      val parsed = P.parse (P.lexString 
+        "let filter f lst = if lst = nil then nil else if (f (hd lst))=true then (cons (hd lst) (filter f (tl lst))) else (filter f (tl lst)) in filter"
+          )
+      val efun = (case parsed of (I.ELetFun (_, _,  func, _)) => func)
+      in
+        I.VRecClosure("filter", "f", efun, initialEnv)
+      end)::initialEnv
          
 end
