@@ -235,11 +235,17 @@ structure Parser =  struct
    *   expr_list  ::= expr T_COMMA expr_list
    *                  expr
    *                  <empty>
+   *   fields ::= T_SYM T_EQUAL expr T_COMMA fields
+                  T_SYM T_EQUAL expr
+                  <empty>
+
    *   aterm ::= T_INT                                                              [aterm_INT]
    *             T_TRUE                                                             [aterm_TRUE]
    *             T_FALSE                                                            [aterm_FALSE]
    *             T_SYM                                                              [aterm_SYM]
+   *             T_HASH T_SYM expr                                                  [aterm_FIELD]
    *             T_LBRACKET expr_list T_RBRACKET                                    [aterm_LIST] 
+   *             T_LBRACE fields T_RBRACE                                           [aterm_RECORD]
    *             T_BACKSLASH T_SYM T_RARROW expr                                    [aterm_FUN]
    *             T_LPAREN expr T_RPAREN                                             [aterm_PARENS]
    *             T_LBRACKET expr T_DDOTS expr T_RBRACKET                            [aterm_INTERVAL]
@@ -397,7 +403,9 @@ structure Parser =  struct
         parse_aterm_LIST,
         parse_aterm_INTERVAL,
         parse_aterm_MAP,
-        parse_aterm_FILTER
+        parse_aterm_FILTER,
+        parse_aterm_RECORD,
+        parse_aterm_FIELD
 	     ] ts
 
   and parse_aterm_INT ts = 
@@ -589,9 +597,6 @@ structure Parser =  struct
       (I.EIdent "tl", e1), e3))
       )
 
-
-
-
   and parse_aterm_LET ts = 
     (case expect_LET ts 
       of NONE => NONE
@@ -635,12 +640,14 @@ structure Parser =  struct
                                     of NONE => NONE
                                      | SOME (e2,ts) => 
                                         make_recur_ELetFun s symlist e1 e2 ts)))))))
-  and make_recur_ELetFun (s:string) ((I.EIdent symhd)::symtl) (e1:I.expr) (e2:I.expr) ts= let
+  and make_recur_ELetFun (s:string) ((I.EIdent symhd)::symtl) (e1:I.expr) (e2:I.expr) ts = let
     fun efun_rec [] = e1
       | efun_rec ((I.EIdent s)::sx) = I.EFun(s, (efun_rec sx))
+      | efun_rec _ = parseError "Efun_rec error"
   in
     SOME ((I.ELetFun(s, symhd, (efun_rec symtl), e2)), ts)
   end
+    | make_recur_ELetFun _ _ _ _ ts = parseError "Make_recur_EletFun"
 
 
   and parse_sym_list ts = 
@@ -708,7 +715,43 @@ structure Parser =  struct
                        (case expect_RBRACKET ts 
                         of NONE => NONE
                          | SOME ts =>  SOME((I.EApp (I.EApp (I.EIdent "interval", e1), e2)),ts))))))
+  and parse_fields ts =
+    (case expect_SYM ts 
+      of NONE => SOME ([], ts)
+       | SOME (sym1, ts) =>
+        (case expect_EQUAL ts 
+          of NONE => NONE
+          |  SOME ts =>
+            (case parse_expr ts 
+              of NONE=>NONE
+              |  SOME (expr,ts) => 
+                (case expect_COMMA ts
+                  of NONE => SOME ([(sym1, expr)], ts)
+                  | SOME(ts) => case parse_fields ts 
+                    of NONE => NONE
+                    | SOME(es, ts) => SOME ((sym1, expr)::es, ts)))))
 
+  and parse_aterm_FIELD ts = 
+    (case expect_HASH ts 
+      of NONE => NONE
+        |SOME ts => 
+          (case expect_SYM ts 
+            of NONE => NONE
+              |SOME (s1,ts) => 
+                (case parse_expr ts 
+                  of NONE => NONE
+                    |SOME (expr,ts) => SOME((I.EField (expr,s1)),ts))))
+
+  and parse_aterm_RECORD ts = 
+    (case expect_LBRACE ts 
+      of NONE => NONE
+      |  SOME (ts) => 
+      (case parse_fields ts 
+        of NONE => NONE
+        |  SOME (expr, ts) => 
+        (case expect_RBRACE ts
+          of NONE => NONE
+          |  SOME ts => SOME ((I.ERecord expr),ts))))
   fun parse ts = 
       (case parse_expr ts
         of SOME (e,[]) => e

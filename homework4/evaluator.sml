@@ -26,7 +26,10 @@ structure Evaluator = struct
 
   fun primEq (I.VInt a) (I.VInt b) = I.VBool (a=b)
     | primEq (I.VBool a) (I.VBool b) = I.VBool (a=b)
-    | primEq (I.VList (a::ax)) (I.VList (b::bx)) = if (case (primEq a b) of (I.VBool x) => x) then 
+    | primEq (I.VList (a::ax)) (I.VList (b::bx)) = if (case (primEq a b) of (I.VBool x) => x
+                                                                            |_ => evalError "primEq error") 
+
+      then 
         primEq (I.VList ax) (I.VList bx)
         else 
         I.VBool false
@@ -71,7 +74,8 @@ structure Evaluator = struct
     | eval env (I.EPrimCall1 (f,e1)) = f (eval env e1)
     | eval env (I.EPrimCall2 (f,e1,e2)) = f (eval env e1) (eval env e2)
     | eval env (I.ERecord fs) =  I.VRecord (map (fn (str, expr) => (str, eval env expr)) fs)
-    | eval env (I.EField (e, s)) = (lookup s (case (eval env e) of (I.VRecord e) => e))
+    | eval env (I.EField (e, s)) = (lookup s (case (eval env e) of (I.VRecord e) => e
+                                                                    | _ => evalError "eval EField error"))
       
   and evalApp _ (I.VClosure (n,body,env)) v = eval ((n,v)::env) body
     | evalApp _ (I.VRecClosure (f,n,body,env)) v = let
@@ -100,8 +104,10 @@ structure Evaluator = struct
   in
     case outer_list of 
       I.VList xs => I.VList(inside::xs)
+      |_ => evalError "outer list error"
   end
   | primMap (I.VClosure(str,expr,fenv)) (I.VList []) = (I.VList [])
+  | primMap _ _ = evalError "primMap error"
   (* 
    *   Initial environment (already in a form suitable for the environment)
    *)
@@ -156,7 +162,8 @@ structure Evaluator = struct
           val parsed = P.parse (P.lexString 
             "let map f lst = if (lst = nil) then nil else (cons (f (hd lst)) (map f (tl lst))) in map"
               )
-          val efun = (case parsed of (I.ELetFun (_, _,  func, _)) => func)
+          val efun = (case parsed of (I.ELetFun (_, _,  func, _)) => func
+                                  | _ => evalError "map eval error")
           in
             I.VRecClosure("map", "f", efun, initialEnv)
           end)::initialEnv
@@ -165,7 +172,8 @@ structure Evaluator = struct
       val parsed = P.parse (P.lexString 
         "let filter f lst = if lst = nil then nil else if (f (hd lst))=true then (cons (hd lst) (filter f (tl lst))) else (filter f (tl lst)) in filter"
           )
-      val efun = (case parsed of (I.ELetFun (_, _,  func, _)) => func)
+      val efun = (case parsed of (I.ELetFun (_, _,  func, _)) => func
+                              | _ => evalError "filter eval error")
       in
         I.VRecClosure("filter", "f", efun, initialEnv)
       end)::initialEnv
