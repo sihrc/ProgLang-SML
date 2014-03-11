@@ -5,8 +5,9 @@ group is
   $/basis.cm
 
   parser.sml
-  representation.sml
+  int-representation.sml
+  stack-representation.sml
+  compiler.sml
   evaluator.sml
   shell.sml
-  sample.sml
-  transformations.sml
+  primitives.sml
