@@ -120,7 +120,7 @@ structure Evaluator = struct
 
     | exec env (I.SPrimCall (f,es)) = f (map (eval env) es)
 
-    | exec env (I.SVar (n,e,s)) = evalError ["exec/SVar not implemented"]
+    | exec env (I.SVar (n,e,s)) = exec ((n, (Var (ref (eval env e))))::env) s
 
 
         

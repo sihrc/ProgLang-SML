@@ -440,24 +440,61 @@ structure Parser =  struct
             | SOME (e2, ts) => case e1 of 
                 I.ECall ("hd", [lst] )  => 
                 SOME (I.SCall ("updateHd", [lst, e2]), ts)
+              | _ => NONE
                 )))
-
+    fun stmt_LETVAR ts = 
+  (case expect T_LETVAR ts
+    of NONE => NONE    
+      |SOME ts => 
+      (case expect_SYM ts 
+      of NONE => NONE
+       | SOME (sym1, ts) => 
+       (case expect T_EQUAL ts 
+        of NONE => NONE
+        | SOME ts => 
+        (case parse_expr ts 
+          of NONE => NONE
+          | SOME (e1, ts) => 
+          (case expect T_IN ts
+            of NONE => NONE
+            | SOME ts => 
+            (case parse_stmt ts 
+              of NONE => NONE
+              | SOME (ss, ts) =>
+                SOME ((I.SVar (sym1, e1, ss)),
+                  ts)))))))
   in
-    choose [stmt_HD_UPDATE , stmt_IF, stmt_WHILE, stmt_UPDATE, stmt_CALL, stmt_PRINT,
+    choose [stmt_LETVAR, stmt_HD_UPDATE , stmt_IF, stmt_WHILE, stmt_UPDATE, stmt_CALL, stmt_PRINT,
 	    stmt_BLOCK_EMPTY, stmt_BLOCK] ts
   end
 
+  and parse_var ts =
+    (case expect T_VAR ts
+      of NONE => NONE
+      | SOME (ts) => (case expect_SYM ts
+      of NONE => NONE
+      | SOME (sym, ts) => (case expect T_EQUAL ts
+      of NONE => NONE
+      | SOME (ts) => (case parse_expr ts
+      of NONE => NONE
+      | SOME (e, ts) => SOME (sym, e, ts)))))
 
   and parse_stmt_list ts = 
       (case parse_stmt ts
-	of NONE => NONE 
-	 | SOME (s,ts) => 
-	   (case expect T_SEMICOLON ts
-	     of NONE => SOME ([s],ts)
-	      | SOME ts => 
-		(case parse_stmt_list ts
-		  of NONE => NONE
-		   | SOME (ss,ts) => SOME (s::ss,ts))))
+      	of NONE => (case parse_var ts
+          of NONE => NONE
+          | SOME (sym, e, ts) => (case expect T_SEMICOLON ts
+            of NONE => SOME ([], ts)
+            | SOME ts => (case parse_stmt_list ts
+              of NONE => NONE
+              | SOME(ss, ts) => SOME ([I.SVar (sym, e, I.SBlock(ss))], ts)))) 
+    	 | SOME (s,ts) => 
+    	   (case expect T_SEMICOLON ts
+    	     of NONE => SOME ([s],ts)
+    	      | SOME ts => 
+    		(case parse_stmt_list ts
+    		  of NONE => NONE
+    		   | SOME (ss,ts) => SOME (s::ss,ts))))
 
  
   and parse_expr ts = let
